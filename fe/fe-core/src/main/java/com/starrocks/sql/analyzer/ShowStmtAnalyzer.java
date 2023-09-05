@@ -54,6 +54,7 @@ import com.starrocks.sql.ast.ShowClustersStmt;
 import com.starrocks.sql.ast.ShowColumnStmt;
 import com.starrocks.sql.ast.ShowCreateDbStmt;
 import com.starrocks.sql.ast.ShowCreateExternalCatalogStmt;
+import com.starrocks.sql.ast.ShowCreateRoutineLoadStmt;
 import com.starrocks.sql.ast.ShowCreateTableStmt;
 import com.starrocks.sql.ast.ShowDataStmt;
 import com.starrocks.sql.ast.ShowDbStmt;
@@ -195,6 +196,14 @@ public class ShowStmtAnalyzer {
             if (!GlobalStateMgr.getCurrentState().getWarehouseMgr().warehouseExists(warehouseName)) {
                 ErrorReport.reportSemanticException(ErrorCode.ERR_BAD_WAREHOUSE_ERROR, warehouseName);
             }
+            return null;
+        }
+
+        @Override
+        public Void visitShowCreateRoutineLoadStatement(ShowCreateRoutineLoadStmt node, ConnectContext context) {
+            String db = node.getDbFullName();
+            db = getDatabaseName(db, context);
+            node.setDbFullName(db);
             return null;
         }
 

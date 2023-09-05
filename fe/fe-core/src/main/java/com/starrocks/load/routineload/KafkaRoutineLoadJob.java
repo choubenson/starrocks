@@ -737,6 +737,33 @@ public class KafkaRoutineLoadJob extends RoutineLoadJob {
     }
 
     @Override
+    Map<String, Object> getDataSourceProperties() {
+        Map<String, Object> properties = Maps.newHashMap();
+        properties.put("kafka_broker_list", brokerList);
+        properties.put("kafka_topic", topic);
+
+        if (customKafkaPartitions != null && customKafkaPartitions.size() != 0) {
+            Map<Integer, Long> offsetMap = ((KafkaProgress) progress).getPartitionIdToOffset(customKafkaPartitions);
+            List<String> partitionStr = new ArrayList<>();
+            List<String> offsetStr = new ArrayList<>();
+            for (int i = 0; i < customKafkaPartitions.size(); i++) {
+                partitionStr.add(customKafkaPartitions.get(i).toString());
+                offsetStr.add(offsetMap.get(customKafkaPartitions.get(i)).toString());
+            }
+            properties.put("kafka_partitions", String.join(", ", partitionStr));
+            properties.put("kafka_offsets", String.join(", ", offsetStr));
+        }
+
+        if (customProperties != null) {
+            for (Map.Entry<String, String> entry : customProperties.entrySet()) {
+                properties.put("property." + entry.getKey(), entry.getValue());
+            }
+        }
+
+        return properties;
+    }
+
+    @Override
     public void modifyDataSourceProperties(RoutineLoadDataSourceProperties dataSourceProperties) throws DdlException {
         List<Pair<Integer, Long>> kafkaPartitionOffsets = Lists.newArrayList();
         Map<String, String> customKafkaProperties = Maps.newHashMap();

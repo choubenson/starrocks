@@ -1109,6 +1109,10 @@ showStreamLoadStatement
         (FROM db=qualifiedName)?
         (WHERE expression)? (ORDER BY sortItem (',' sortItem)*)? (limitElement)?
     ;
+
+showCreateRoutineLoadStatement
+    : SHOW CREATE ROUTINE LOAD FOR (db=qualifiedName '.')? name=identifier
+    ;
 // ------------------------------------------- Analyze Statement -------------------------------------------------------
 
 analyzeStatement

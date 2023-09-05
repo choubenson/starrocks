@@ -1873,6 +1873,20 @@ public class AstBuilder extends StarRocksBaseVisitor<ParseNode> {
                 limitElement, createPos(context));
     }
 
+    @Override
+    public ParseNode visitShowCreateRoutineLoadStatement(StarRocksParser.ShowCreateRoutineLoadStatementContext context) {
+        String database = null;
+        if (context.db != null) {
+            database = getQualifiedName(context.db).toString();
+        }
+        String name = null;
+        if (context.name != null) {
+            name = getIdentifierName(context.name);
+        }
+
+        return new ShowCreateRoutineLoadStmt(new LabelName(database, name));
+    }
+
     // ------------------------------------------- Admin Statement -----------------------------------------------------
 
     @Override

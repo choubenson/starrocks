@@ -1768,15 +1768,15 @@ public abstract class RoutineLoadJob extends AbstractTxnStateChangeCallback impl
                           boolean isReplay) throws DdlException {
         writeLock();
         try {
-            if (routineLoadDesc != null) {
-                setRoutineLoadDesc(routineLoadDesc);
-                mergeLoadDescToOriginStatement(routineLoadDesc);
-            }
             if (jobProperties != null) {
                 modifyCommonJobProperties(jobProperties);
             }
             if (dataSourceProperties != null) {
                 modifyDataSourceProperties(dataSourceProperties);
+            }
+            if (routineLoadDesc != null) {
+                setRoutineLoadDesc(routineLoadDesc);
+                mergeLoadDescToOriginStatement(routineLoadDesc);
             }
             if (!isReplay) {
                 AlterRoutineLoadJobOperationLog log = new AlterRoutineLoadJobOperationLog(id,
@@ -1822,13 +1822,56 @@ public abstract class RoutineLoadJob extends AbstractTxnStateChangeCallback impl
         }
 
         // we use sql to persist the load properties, so we just put the load properties to sql.
-        String sql = String.format("CREATE ROUTINE LOAD %s ON %s %s" +
-                        " PROPERTIES (\"desired_concurrent_number\"=\"1\")" +
-                        " FROM KAFKA (\"kafka_topic\" = \"my_topic\")",
-                name, tableName, originLoadDesc.toSql());
+        Map<String, Object> dataSourceProperties = getDataSourceProperties();
+        String brokerExpr = "";
+        if (dataSourceProperties.containsKey("broker")) {
+            // Iceberg routine load may contain broker expr
+            brokerExpr = dataSourceProperties.remove("broker").toString();
+        }
+        String sql = String.format("CREATE ROUTINE LOAD %s ON %s %s PROPERTIES ( %s )" +
+                        " FROM %s ( %s ) %s;",
+                name, tableName, originLoadDesc.toSql(), mapToString(getRoutineJobProperties()),
+                getDataSourceTypeName(),
+                mapToString(dataSourceProperties), brokerExpr);
+
         LOG.debug("merge result: {}", sql);
         origStmt = new OriginStatement(sql, 0);
     }
+
+    public Map<String, Object> getRoutineJobProperties() {
+        Map<String, Object> map = Maps.newHashMap();
+        map.put("desired_concurrent_number", desireTaskConcurrentNum);
+        map.put("max_batch_interval", taskSchedIntervalS);
+        map.put("max_batch_rows", maxBatchRows);
+        map.put("max_error_number", maxErrorNum);
+        map.put("strict_mode", isStrictMode());
+        map.put("timezone", getTimezone());
+        if (jobProperties.containsKey(LoadStmt.MERGE_CONDITION)) {
+            map.put(LoadStmt.MERGE_CONDITION, taskSchedIntervalS);
+        }
+        map.put("format", getFormat());
+        map.put("strip_outer_array", isStripOuterArray());
+        map.put("jsonpaths", getJsonPaths());
+        map.put("json_root", getJsonRoot());
+        map.put("ignore_tail_columns", isIgnoreTailColumns());
+        map.put("skip_utf8_check", isSkipUtf8Check());
+
+        return map;
+    }
+
+    protected String mapToString(Map<String, Object> map) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            sb.append("\"").append(entry.getKey()).append("\" = \"").append(entry.getValue()).append("\", ");
+        }
+        String result = sb.toString();
+        if (map.size() > 0) {
+            result = result.substring(0, result.length() - 2);
+        }
+        return result;
+    }
+
+    abstract Map<String, Object> getDataSourceProperties();
 
     protected abstract void modifyDataSourceProperties(RoutineLoadDataSourceProperties dataSourceProperties)
             throws DdlException;
